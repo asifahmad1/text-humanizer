@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Text Humanizer — AI-Style Checker &amp; Rewriter</title>
+<meta name="description" content="Check your text for AI-style patterns with colour highlighting, then humanize it with a built-in rewriting engine and re-check the improvement — entirely in your browser.">
+<style>
+  :root{
+    --emerald:#103E32; --emerald-2:#0B4F3A; --lime:#DCF5B5; --lime-strong:#C9EC8F;
+    --paper:#F7F8F2; --ink:#17352B; --muted:#5A6E64; --line:#DCE5D8;
+    --danger:#B3261E; --danger-bg:#FDECEA; --ok:#146C43; --ok-bg:#E6F4EA;
+    --amber:#8A5A00; --amber-bg:#FDF3E3;
+    --radius:14px; --shadow:0 10px 30px rgba(16,62,50,.12);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{font-family:"Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif;background:var(--paper);color:var(--ink);line-height:1.55;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1120px;margin:0 auto;padding:20px 16px 40px}
+  header.hero{background:linear-gradient(135deg,var(--emerald) 0%,var(--emerald-2) 100%);color:#fff;border-radius:var(--radius);padding:28px 26px;box-shadow:var(--shadow)}
+  header.hero h1{margin:0 0 6px;font-size:clamp(25px,4.2vw,37px)}
+  header.hero h1 .accent{color:var(--lime)}
+  header.hero p{margin:0;max-width:720px;color:#EAF3E4;font-size:clamp(14px,2.4vw,16px)}
+  .badge{display:inline-block;background:var(--lime);color:var(--emerald);font-weight:700;font-size:12px;padding:3px 10px;border-radius:999px;margin-bottom:12px;letter-spacing:.4px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);margin-top:18px}
+  .card h2{margin:0 0 6px;font-size:17px;color:var(--emerald)}
+  .card .sub{font-size:13.5px;color:var(--muted);margin:0 0 8px}
+  textarea{
+    width:100%;min-height:170px;padding:12px;border-radius:10px;border:1.5px solid var(--line);
+    font-size:14.5px;line-height:1.6;color:var(--ink);resize:vertical;font-family:inherit;
+  }
+  .drop{border:2px dashed #9DB8A6;border-radius:10px;background:#FBFCF8;padding:12px;text-align:center;cursor:pointer;font-size:13.5px;color:var(--muted);margin-bottom:10px}
+  .drop:hover{border-color:var(--emerald-2)}
+  .drop input{display:none}
+  .msg{display:none;border-radius:10px;padding:10px 12px;font-size:14px;margin-top:12px;white-space:pre-line}
+  .msg.error{display:block;background:var(--danger-bg);color:var(--danger);border:1px solid #F3C2BE}
+  .msg.ok{display:block;background:var(--ok-bg);color:var(--ok);border:1px solid #BFE3CC}
+  .btn{appearance:none;border:none;cursor:pointer;border-radius:10px;padding:11px 16px;font-size:14.5px;font-weight:700;display:inline-block;text-align:center}
+  .btn.primary{background:var(--emerald);color:#fff}
+  .btn.primary:hover{background:var(--emerald-2)}
+  .btn.lime{background:var(--lime);color:var(--emerald)}
+  .btn.lime:hover{background:var(--lime-strong)}
+  .btn.ghost{background:#fff;color:var(--emerald);border:1.5px solid var(--emerald)}
+  .btn:disabled{background:#9DB8A6;color:#fff;cursor:not-allowed}
+  .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media (max-width:760px){.row2{grid-template-columns:1fr}}
+  .scorebox{text-align:center;padding:8px 0 2px}
+  .score{font-size:52px;font-weight:800;line-height:1;color:var(--emerald)}
+  .score small{font-size:20px;color:var(--muted)}
+  .band{font-weight:700;margin-top:4px}
+  .bar{height:12px;border-radius:999px;background:#E4EBDF;overflow:hidden;margin:10px auto 4px;max-width:420px}
+  .bar > div{height:100%;border-radius:999px;transition:width .5s}
+  .metrics{font-size:13.5px;margin-top:10px}
+  .metrics table{width:100%;border-collapse:collapse}
+  .metrics td{padding:4px 2px;border-bottom:1px solid var(--line)}
+  .metrics td:last-child{text-align:right;font-weight:700;color:var(--emerald);font-variant-numeric:tabular-nums}
+  .hl{border:1px solid var(--line);border-radius:10px;padding:13px;background:#FDFEFB;font-size:14.5px;line-height:1.75;white-space:pre-wrap;word-wrap:break-word;max-height:330px;overflow:auto}
+  .s-high{background:#F8D7D3;border-radius:4px;padding:0 2px}
+  .s-med{background:#FCEBC4;border-radius:4px;padding:0 2px}
+  .s-low{background:#DDF0DC;border-radius:4px;padding:0 2px}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-top:8px}
+  .legend span::before{content:"";display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+  .lg-h::before{background:#F8D7D3}.lg-m::before{background:#FCEBC4}.lg-l::before{background:#DDF0DC}
+  label.f{display:block;font-size:13.5px;font-weight:600;margin:10px 0 4px}
+  select{width:100%;max-width:300px;padding:9px;border-radius:10px;border:1.5px solid var(--line);font-size:14px;background:#fff;color:var(--ink)}
+  .honest{background:var(--amber-bg);border-left:4px solid #C9A227;border-radius:8px;padding:11px 14px;font-size:13.5px;margin-top:14px}
+  .delta{font-size:15px;text-align:center;margin-top:6px}
+  .privacy{margin-top:16px;font-size:13px;color:var(--muted);text-align:center}
+  footer{margin-top:10px;text-align:center;font-size:13px;color:var(--muted)}
+  .hidden{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <span class="badge">ASIF SAAS STUDIO</span>
+    <h1>Text <span class="accent">Humanizer</span></h1>
+    <p>Paste or upload text to measure its <strong>AI-style score</strong> — the patterns detectors look for, highlighted sentence by sentence — then humanize it with the built-in rewriting engine and watch the score fall. Everything runs in your browser.</p>
+  </header>
+
+  <section class="card" aria-label="Your text">
+    <h2>1 · Your text</h2>
+    <div class="drop" id="drop" tabindex="0" role="button" aria-label="Upload a text file">
+      📄 Drop a document here — .docx · .pdf · .rtf · .html · .odt · .txt · .md — or tap to browse
+      <input type="file" id="file" accept=".docx,.pdf,.rtf,.html,.htm,.odt,.txt,.md,.doc">
+    </div>
+    <textarea id="input" placeholder="Paste your text here (50 to 20,000 characters). For a meaningful score, use at least a paragraph or two."></textarea>
+    <div class="sub" id="counts" style="margin-top:6px">0 words · 0 characters</div>
+    <div class="msg" id="msg" role="alert"></div>
+    <div class="row2" style="margin-top:4px">
+      <div>
+        <label class="f" for="tone">Humanizing tone</label>
+        <select id="tone">
+          <option value="natural">Natural (everyday writing)</option>
+          <option value="academic">Academic (scholarly, still human)</option>
+          <option value="casual">Casual (friendly, contractions)</option>
+          <option value="professional">Professional (clear business tone)</option>
+        </select>
+      </div>
+      <div>
+        <label class="f" for="strength">Rewrite strength</label>
+        <select id="strength">
+          <option value="light">Light — stock phrases only</option>
+          <option value="medium" selected>Medium — phrases + word choice</option>
+          <option value="strong">Strong — + sentence rhythm changes</option>
+        </select>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn primary" id="analyze" style="flex:1 1 180px">① Check AI-style score</button>
+      <button class="btn lime" id="humanize" style="flex:1 1 180px" disabled>② Humanize &amp; re-check</button>
+      <button class="btn ghost" id="sample">Sample text</button>
+      <button class="btn ghost" id="clear">Clear</button>
+    </div>
+    <div class="honest"><strong>Read this first — honestly.</strong> The score here is a <em>stylistic estimate</em> computed on your device from writing patterns (stock phrases, sentence rhythm, word choice). It is <strong>not</strong> a GPTZero, Turnitin, Originality.ai, Copyleaks or Pangram score: those are private, server-side models that change constantly, and <strong>no tool can honestly guarantee a pass</strong> on them. What this app does is real — it removes the patterns that make text read as machine-written, and proves the change with a before/after measurement. Use it on your own drafts, and always review the rewrite yourself.</div>
+  </section>
+
+  <section class="card hidden" id="beforeCard" aria-label="Before analysis">
+    <h2>2 · Before — AI-style analysis</h2>
+    <div class="row2">
+      <div>
+        <div class="scorebox">
+          <div class="score"><span id="scoreBefore">–</span><small>%</small></div>
+          <div class="bar"><div id="barBefore" style="width:0%"></div></div>
+          <div class="band" id="bandBefore"></div>
+          <p class="sub">AI-style score (lower = more human-style)</p>
+        </div>
+        <div class="metrics" id="metricsBefore"></div>
+      </div>
+      <div>
+        <div class="hl" id="hlBefore"></div>
+        <div class="legend"><span class="lg-h">Strong AI-style</span><span class="lg-m">Some AI-style signals</span><span class="lg-l">Human-style</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card hidden" id="afterCard" aria-label="After humanizing">
+    <h2>3 · After — humanized text</h2>
+    <div class="row2">
+      <div>
+        <div class="scorebox">
+          <div class="score"><span id="scoreAfter">–</span><small>%</small></div>
+          <div class="bar"><div id="barAfter" style="width:0%"></div></div>
+          <div class="band" id="bandAfter"></div>
+          <div class="delta" id="deltaLine"></div>
+        </div>
+        <div class="metrics" id="metricsAfter"></div>
+        <div class="actions">
+          <button class="btn primary" id="copyOut">Copy humanized text</button>
+          <button class="btn ghost" id="dlOut">Download .txt</button>
+          <button class="btn ghost" id="useAsInput">Use as new input</button>
+        </div>
+        <label class="f">Download full report (scores, metrics, highlighted text)</label>
+        <div class="actions" style="margin-top:4px">
+          <button class="btn lime" data-report="html">HTML</button>
+          <button class="btn lime" data-report="pdf">PDF</button>
+          <button class="btn lime" data-report="docx">DOCX</button>
+          <button class="btn lime" data-report="doc">DOC</button>
+          <button class="btn lime" data-report="json">JSON</button>
+        </div>
+      </div>
+      <div>
+        <div class="hl" id="hlAfter"></div>
+        <div class="legend"><span class="lg-h">Strong AI-style</span><span class="lg-m">Some AI-style signals</span><span class="lg-l">Human-style</span></div>
+      </div>
+    </div>
+  </section>
+
+  <p class="privacy">🔒 Private by design: your text never leaves your device — no uploads, no accounts, no tracking.</p>
+  <footer>Text Humanizer · v1.1 · Asif SaaS Studio</footer>
+</div>
+
+<script>
+"use strict";
+/* ================= PURE CORE (analysis + rewriting — no DOM) ================= */
+/* PURE-CORE-START */
+/* Stock phrases strongly associated with machine-generated prose */
+var STOCK_PHRASES = [
+  "it is important to note that", "it is worth noting that", "it should be noted that",
+  "in today's fast-paced world", "in the ever-evolving", "in conclusion", "furthermore",
+  "moreover", "additionally", "in addition", "overall", "in summary", "to summarize",
+  "delve into", "delves into", "when it comes to", "plays a crucial role", "plays a vital role",
+  "plays an important role", "a wide range of", "a variety of", "in order to", "due to the fact that",
+  "at the end of the day", "on the other hand", "in terms of", "as a result", "consequently",
+  "nevertheless", "nonetheless", "it goes without saying", "needless to say", "first and foremost",
+  "last but not least", "in the realm of", "the world of", "landscape of", "ever-changing landscape",
+  "unlock the power", "unlock the potential", "harness the power", "game-changer", "game changer",
+  "cutting-edge", "state-of-the-art", "seamlessly", "furthermore,", "in this article, we will",
+  "in this essay", "has revolutionized", "has transformed the way", "stands as a testament",
+  "a testament to", "rich tapestry", "vibrant tapestry", "intricate tapestry"
+];
+/* Formal / AI-favoured words -> plainer human alternatives */
+var WORD_SWAPS = {
+  utilize: ["use", "work with"], utilise: ["use"], leverage: ["use", "build on"],
+  facilitate: ["help", "make easier"], numerous: ["many", "plenty of"], sufficient: ["enough"],
+  approximately: ["about", "around"], demonstrate: ["show"], indicate: ["show", "suggest"],
+  therefore: ["so"], thus: ["so"], hence: ["so"], purchase: ["buy"], assistance: ["help"],
+  assist: ["help"], commence: ["start", "begin"], terminate: ["end", "stop"],
+  endeavor: ["try", "effort"], endeavour: ["try", "effort"], attempt: ["try"],
+  obtain: ["get"], receive: ["get"], require: ["need"], additional: ["more", "extra"],
+  furthermore: ["also"], moreover: ["also", "and"], additionally: ["also"],
+  consequently: ["so", "as a result"], nevertheless: ["still", "yet"], nonetheless: ["still", "yet"],
+  subsequently: ["later", "after that"], previously: ["before", "earlier"],
+  currently: ["now"], initially: ["at first"], ultimately: ["in the end", "finally"],
+  essential: ["key", "vital"], crucial: ["key", "critical"], vital: ["key", "essential"],
+  significant: ["major", "big"], substantially: ["greatly", "a lot"], primarily: ["mainly"],
+  effectively: ["in practice"], rapidly: ["quickly"],
+  individually: ["one by one"], components: ["parts"], comprehensive: ["full", "complete"],
+  incorporate: ["include", "build in"], implement: ["put in place", "carry out"],
+  ensure: ["make sure"], enhance: ["improve", "strengthen"], improve: ["make better"],
+  increase: ["raise", "grow"], decrease: ["lower", "drop"], determine: ["work out", "find"],
+  establish: ["set up"], regarding: ["about", "on"], concerning: ["about"],
+  prior: ["before"], therefore_: [], individuals: ["people"], persons: ["people"],
+  children_: [], "in order to": ["to"], "due to the fact that": ["because"],
+  "a large number of": ["many"], "a wide range of": ["many kinds of", "all sorts of"],
+  "is able to": ["can"], "are able to": ["can"], "has the ability to": ["can"],
+  "in the event that": ["if"], "at this point in time": ["now"], "in spite of the fact that": ["although"],
+  methodology: ["method"], utilize_: []
+};
+Object.keys(WORD_SWAPS).forEach(function(k){ if (!WORD_SWAPS[k].length || k.endsWith("_")) delete WORD_SWAPS[k]; });
+var CONTRACTIONS = [
+  [/\bdo not\b/gi, "don't"], [/\bdoes not\b/gi, "doesn't"], [/\bdid not\b/gi, "didn't"],
+  [/\bcannot\b/gi, "can't"], [/\bcan not\b/gi, "can't"], [/\bwill not\b/gi, "won't"],
+  [/\bwould not\b/gi, "wouldn't"], [/\bcould not\b/gi, "couldn't"], [/\bshould not\b/gi, "shouldn't"],
+  [/\bis not\b/gi, "isn't"], [/\bare not\b/gi, "aren't"], [/\bwas not\b/gi, "wasn't"],
+  [/\bwere not\b/gi, "weren't"], [/\bhave not\b/gi, "haven't"], [/\bhas not\b/gi, "hasn't"],
+  [/\bit is\b/gi, "it's"], [/\bthat is\b/gi, "that's"], [/\bthere is\b/gi, "there's"],
+  [/\bwe are\b/gi, "we're"], [/\byou are\b/gi, "you're"], [/\bthey are\b/gi, "they're"],
+  [/\bi am\b/gi, "I'm"], [/\bwe will\b/gi, "we'll"], [/\bit will\b/gi, "it'll"],
+  [/\bdo not\b/gi, "don't"]
+];
+/* Phrase-level rewrite rules: [regex, [alternatives]] — "" alternative = delete */
+var PHRASE_RULES = [
+  [/\bit is important to note that\s*/gi, ["", "keep in mind: ", "note that "]],
+  [/\bit is worth noting that\s*/gi, ["", "note that "]],
+  [/\bit should be noted that\s*/gi, ["", "note that "]],
+  [/\bin today's fast-paced world,?\s*/gi, ["these days, ", "nowadays, ", ""]],
+  [/\bin the ever-evolving world of\s*/gi, ["in ", "in today's "]],
+  [/\bin conclusion,?\s*/gi, ["in short, ", "so, ", "to wrap up, "]],
+  [/\bfurthermore,?\s*/gi, ["also, ", "on top of that, ", "and "]],
+  [/\bmoreover,?\s*/gi, ["also, ", "what's more, ", "and "]],
+  [/\badditionally,?\s*/gi, ["also, ", "plus, ", ""]],
+  [/\bin addition,?\s*/gi, ["also, ", "plus, "]],
+  [/\bdelve into\s*/gi, ["look at ", "dig into ", "explore "]],
+  [/\bdelves into\s*/gi, ["looks at ", "explores "]],
+  [/\bwhen it comes to\s*/gi, ["for ", "with "]],
+  [/\bplays a crucial role in\s*/gi, ["is central to ", "matters a lot for "]],
+  [/\bplays a vital role in\s*/gi, ["is central to ", "matters a lot for "]],
+  [/\bplays an important role in\s*/gi, ["matters for ", "is a big part of "]],
+  [/\bdue to the fact that\s*/gi, ["because "]],
+  [/\bin order to\s*/gi, ["to "]],
+  [/\bat the end of the day,?\s*/gi, ["in the end, ", "ultimately, ", ""]],
+  [/\bit goes without saying that\s*/gi, ["clearly, ", ""]],
+  [/\bneedless to say,?\s*/gi, ["of course, ", ""]],
+  [/\bfirst and foremost,?\s*/gi, ["first, ", "above all, "]],
+  [/\blast but not least,?\s*/gi, ["finally, ", "and last, "]],
+  [/\bstands as a testament to\s*/gi, ["shows ", "proves "]],
+  [/\ba testament to\s*/gi, ["proof of ", "a sign of "]],
+  [/\bhas revolutionized\s*/gi, ["has changed ", "has reshaped "]],
+  [/\bhas transformed the way\s*/gi, ["has changed how "]],
+  [/\bseamlessly\s*/gi, ["smoothly ", "without friction "]],
+  [/\bcutting-edge\s*/gi, ["latest ", "newest "]],
+  [/\bstate-of-the-art\s*/gi, ["latest ", "most advanced "]],
+  [/\bgame-changer\b/gi, ["turning point", "big shift"]],
+  [/\bunlock the potential of\s*/gi, ["make the most of ", "get more from "]],
+  [/\bharness the power of\s*/gi, ["use ", "put to work "]],
+  [/\ba wide range of\s*/gi, ["all kinds of ", "many types of "]],
+  [/\bin the realm of\s*/gi, ["in ", "in the world of "]]
+];
+/* ---------- text utilities ---------- */
+function splitParagraphs(text){ return String(text).split(/\n\s*\n|\n/).map(function(p){ return p.trim(); }).filter(Boolean); }
+function splitSentences(text){
+  var guarded = String(text)
+    .replace(/\b(Dr|Mr|Mrs|Ms|St|Prof|Sr|Jr|vs|etc|approx|Fig|No)\./gi, "$1\u0001")
+    .replace(/\be\.g\./gi, "e\u0001g\u0001")
+    .replace(/\bi\.e\./gi, "i\u0001e\u0001");
+  var parts = guarded.match(/[^.!?]+[.!?]+["']?\s*|[^.!?]+$/g) || [guarded];
+  return parts.map(function(s){ return s.replace(/\u0001/g, ".").trim(); }).filter(Boolean);
+}
+function wordsOf(text){ return String(text).toLowerCase().match(/[a-z0-9']+/g) || []; }
+function countSyllables(w){
+  w = w.toLowerCase().replace(/[^a-z]/g, "");
+  if (!w) return 0; if (w.length <= 3) return 1;
+  var s = (w.replace(/e$/, "").match(/[aeiouy]+/g) || []).length;
+  return Math.max(1, s);
+}
+function flesch(text, words, sentences){
+  if (!words.length || !sentences.length) return 0;
+  var syl = words.reduce(function(a, w){ return a + countSyllables(w); }, 0);
+  return Math.max(0, Math.min(100, 206.835 - 1.015 * (words.length / sentences.length) - 84.6 * (syl / words.length)));
+}
+function occurrences(haystackLower, phrase){ var n = 0, i = 0; while ((i = haystackLower.indexOf(phrase, i)) >= 0){ n++; i += phrase.length; } return n; }
+/* ---------- analysis ---------- */
+function sentenceClass(sentence, lower, meanLen){
+  var pts = 0, wc = wordsOf(sentence).length;
+  STOCK_PHRASES.forEach(function(p){ if (lower.indexOf(p) >= 0) pts += 2; });
+  var formal = 0;
+  wordsOf(sentence).forEach(function(w){ if (WORD_SWAPS[w]) formal++; });
+  if (formal >= 2) pts += 1;
+  if (!/('[a-z]+\b|n't\b)/i.test(sentence) && wc >= 15) pts += 0.5;
+  if (meanLen && Math.abs(wc - meanLen) <= meanLen * 0.15 && wc >= 10) pts += 0.5;
+  return pts >= 2 ? "high" : pts >= 1 ? "med" : "low";
+}
+function analyze(text){
+  var clean = String(text || "").trim();
+  if (!clean) return { score: 0, words: 0, sentences: 0, stockHits: 0, stockPer100: 0, avgSentenceLen: 0,
+    sentenceCV: 0, formalPer100: 0, contractions: 0, ttr: 0, flesch: 0, sentenceObjs: [] };
+  var words = wordsOf(clean), lower = clean.toLowerCase();
+  var paras = splitParagraphs(clean);
+  var sentences = [];
+  paras.forEach(function(p){ splitSentences(p).forEach(function(s){ sentences.push(s); }); });
+  var stockHits = 0;
+  STOCK_PHRASES.forEach(function(p){ stockHits += occurrences(lower, p); });
+  var stockPer100 = words.length ? 100 * stockHits / words.length : 0;
+  var lens = sentences.map(function(s){ return wordsOf(s).length; }).filter(function(n){ return n > 0; });
+  var avgLen = lens.length ? lens.reduce(function(a, b){ return a + b; }, 0) / lens.length : 0;
+  var sdLen = lens.length > 1 ? Math.sqrt(lens.reduce(function(a, l){ return a + (l - avgLen) * (l - avgLen); }, 0) / (lens.length - 1)) : 0;
+  var cv = avgLen ? sdLen / avgLen : 0;
+  var formalHits = 0;
+  words.forEach(function(w){ if (WORD_SWAPS[w]) formalHits++; });
+  var formalPer100 = words.length ? 100 * formalHits / words.length : 0;
+  var contractions = (clean.match(/\b\w+n't\b|\b\w+'(re|ve|ll|d|s)\b/gi) || []).length;
+  var unique = {};
+  words.forEach(function(w){ unique[w] = 1; });
+  var ttr = words.length ? Object.keys(unique).length / words.length : 0;
+  var expTTR = words.length < 100 ? 0.82 : words.length < 300 ? 0.70 : words.length < 800 ? 0.60 : words.length < 2000 ? 0.51 : 0.43;
+  var sub = {
+    stock: Math.min(1, stockPer100 / 5),
+    uniformity: lens.length < 3 ? 0.35 : Math.max(0, Math.min(1, 1 - cv / 0.55)),
+    formal: Math.min(1, formalPer100 / 4),
+    contraction: words.length >= 60 ? Math.max(0, Math.min(1, 1 - (100 * contractions / words.length) / 1.1)) : 0.3,
+    diversity: Math.max(0, Math.min(1, (expTTR - ttr + 0.05) / 0.22))
+  };
+  var score = Math.round(100 * (0.30 * sub.stock + 0.24 * sub.uniformity + 0.18 * sub.formal + 0.10 * sub.contraction + 0.18 * sub.diversity));
+  if (words.length < 50) score = Math.round(score * 0.7); // too little text = low confidence
+  return {
+    score: Math.max(0, Math.min(100, score)),
+    words: words.length, sentences: sentences.length,
+    stockHits: stockHits, stockPer100: stockPer100,
+    avgSentenceLen: avgLen, sentenceCV: cv,
+    formalPer100: formalPer100, contractions: contractions,
+    ttr: ttr, flesch: flesch(clean, words, sentences),
+    sentenceObjs: sentences.map(function(s){ return { text: s, cls: sentenceClass(s, s.toLowerCase(), avgLen) }; })
+  };
+}
+function bandOf(score){
+  return score >= 60 ? ["Strong AI-style signals", "#B3261E"] :
+    score >= 32 ? ["Mixed — AI-style patterns present", "#8A5A00"] :
+    ["Mostly human-style", "#146C43"];
+}
+/* ---------- humanizer ---------- */
+function matchCase(replacement, matched){
+  if (!replacement) return "";
+  return /^[A-Z]/.test(matched) ? replacement.charAt(0).toUpperCase() + replacement.slice(1) : replacement;
+}
+function humanize(text, tone, strength){
+  var rot = 0;
+  function pick(alts){ return alts[(rot++) % alts.length]; }
+  var strong = strength === "strong", medium = strength !== "light";
+  var paras = splitParagraphs(text).map(function(para){
+    var out = para;
+    // 1) phrase rules (all strengths)
+    PHRASE_RULES.forEach(function(rule){
+      out = out.replace(rule[0], function(m){ return matchCase(pick(rule[1]), m); });
+    });
+    // 2) word swaps (medium+)
+    if (medium){
+      Object.keys(WORD_SWAPS).forEach(function(w){
+        if (w.indexOf(" ") >= 0) return; // multi-word handled by phrase rules
+        var re = new RegExp("\\b" + w + "\\b", "gi");
+        out = out.replace(re, function(m, offset, whole){
+          // deterministic variety: swap most occurrences, keep some originals at medium
+          var h = (offset * 31 + whole.length) % 10;
+          if (!strong && h < 3) return m;
+          return matchCase(pick(WORD_SWAPS[w]), m);
+        });
+      });
+      // multi-word word swaps ("in order to" style already covered; is able to etc.)
+      [["is able to", "can"], ["are able to", "can"], ["has the ability to", "can"],
+       ["in the event that", "if"], ["at this point in time", "now"], ["a large number of", "many"]
+      ].forEach(function(pair){
+        out = out.replace(new RegExp("\\b" + pair[0] + "\\b", "gi"), function(m){ return matchCase(pair[1], m); });
+      });
+    }
+    // 3) contractions (medium+; academic keeps prose more formal — fewer)
+    if (medium && tone !== "academic"){
+      CONTRACTIONS.forEach(function(pair){
+        out = out.replace(pair[0], function(m){
+          if (!strong && (m.length * 7) % 3 === 0) return m;
+          return matchCase(pair[1], m);
+        });
+      });
+    }
+    // 4) rhythm (strong): split very long sentences; merge very short neighbours
+    if (strong){
+      var sents = splitSentences(out), rebuilt = [];
+      sents.forEach(function(s){
+        var wc = wordsOf(s).length;
+        if (wc > 27){
+          var splitAt = s.search(/,\s+(and|but|while|which)\s+/i);
+          if (splitAt > 30){
+            var head = s.slice(0, splitAt).trim(), tail = s.slice(splitAt + 1).trim();
+            tail = tail.replace(/^(and|but)\s+/i, "");
+            rebuilt.push(head + ".");
+            rebuilt.push(tail.charAt(0).toUpperCase() + tail.slice(1));
+            return;
+          }
+        }
+        rebuilt.push(s);
+      });
+      var merged = [];
+      for (var i = 0; i < rebuilt.length; i++){
+        var cur = rebuilt[i];
+        if (merged.length && wordsOf(merged[merged.length - 1]).length < 7 && wordsOf(cur).length < 12 &&
+            /^(It|This|They|He|She|We)\b/.test(cur)){
+          merged[merged.length - 1] = merged[merged.length - 1].replace(/[.!?]\s*$/, "") + ", and " +
+            cur.charAt(0).toLowerCase() + cur.slice(1);
+        } else merged.push(cur);
+      }
+      out = merged.join(" ");
+    }
+    return out;
+  });
+  var joined = paras.join("\n\n").replace(/\s+([,.!?;:])/g, "$1").replace(/[ \t]{2,}/g, " ").trim();
+  return joined.replace(/(^|[.!?]\s+|\n\s*)([a-z])/g, function(m, pre, ch){ return pre + ch.toUpperCase(); });
+}
+
+/* ================= FORMAT ENGINES (input parsers + report writers) ================= */
+function decodeEntities(s){
+  return String(s).replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'").replace(/&#(\d+);/g, function(_, n){ return String.fromCharCode(+n); })
+    .replace(/&#x([0-9a-fA-F]+);/g, function(_, n){ return String.fromCharCode(parseInt(n, 16)); })
+    .replace(/&amp;/g, "&");
+}
+function escXml(s){ return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+/* ---- ZIP reading (docx / odt / pdf containers) ---- */
+function zipEntryMap(u8, dv){
+  var eocd = -1;
+  for (var i = u8.length - 22; i >= Math.max(0, u8.length - 66000); i--)
+    if (dv.getUint32(i, true) === 0x06054b50){ eocd = i; break; }
+  if (eocd < 0) return null;
+  var count = dv.getUint16(eocd + 10, true), off = dv.getUint32(eocd + 16, true), entries = {};
+  for (var n = 0; n < count; n++){
+    if (dv.getUint32(off, true) !== 0x02014b50) break;
+    var nlen = dv.getUint16(off + 28, true), elen = dv.getUint16(off + 30, true), clen = dv.getUint16(off + 32, true);
+    var name = new TextDecoder().decode(u8.subarray(off + 46, off + 46 + nlen));
+    entries[name] = { method: dv.getUint16(off + 10, true), csize: dv.getUint32(off + 20, true), lhofs: dv.getUint32(off + 42, true) };
+    off += 46 + nlen + elen + clen;
+  }
+  return entries;
+}
+async function zipEntryBytes(u8, dv, entries, name){
+  var e = entries[name]; if (!e) return null;
+  var lo = e.lhofs, nlen = dv.getUint16(lo + 26, true), elen = dv.getUint16(lo + 28, true);
+  var comp = u8.subarray(lo + 30 + nlen + elen, lo + 30 + nlen + elen + e.csize);
+  if (e.method === 0) return comp.slice();
+  if (e.method === 8){
+    if (typeof DecompressionStream === "undefined") throw new Error("This browser cannot unpack Office files. Please use a current Chrome, Edge, Firefox or Safari — or save as .txt.");
+    var stream = new Blob([comp]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  }
+  throw new Error("Unsupported compression in the file.");
+}
+/* ---- DOCX text ---- */
+function parseDocxText(xml){
+  var paras = xml.split(/<w:p[\s>]/).slice(1).map(function(chunk){
+    var end = chunk.indexOf("</w:p>");
+    var body = end >= 0 ? chunk.slice(0, end) : chunk;
+    body = body.replace(/<w:tab[^>]*\/>/g, " ").replace(/<w:br[^>]*\/>/g, "\n");
+    var runs = body.match(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g) || [];
+    return runs.map(function(r){ return decodeEntities(r.replace(/<[^>]+>/g, "")); }).join("");
+  });
+  return paras.join("\n\n").replace(/[ \t]+\n/g, "\n").trim();
+}
+/* ---- ODT text ---- */
+function parseOdtText(xml){
+  var withBreaks = xml.replace(/<text:p[^>]*>/g, "\n\n").replace(/<text:line-break\/>/g, "\n").replace(/<text:s[^>]*\/>/g, " ");
+  return decodeEntities(withBreaks.replace(/<[^>]+>/g, "")).replace(/[ \t]{2,}/g, " ").trim();
+}
+/* ---- RTF text ---- */
+var RTF_SKIP_DEST = { fonttbl: 1, colortbl: 1, stylesheet: 1, info: 1, pict: 1, object: 1, header: 1, footer: 1,
+  footnote: 1, annotation: 1, fldinst: 1, listtable: 1, listoverridetable: 1, rsidtbl: 1, generator: 1,
+  themedata: 1, colorschemedata: 1, datastore: 1, latentstyles: 1, xmlnstbl: 1, datafield: 1 };
+var CP1252_HIGH = { 0x91: "‘", 0x92: "’", 0x93: "“", 0x94: "”", 0x95: "•", 0x96: "–", 0x97: "—", 0x85: "…", 0xA0: " " };
+function parseRtf(rtf){
+  var out = [], i = 0, n = rtf.length, depth = 0, skipDepth = -1;
+  function isSkipping(){ return skipDepth >= 0; }
+  while (i < n){
+    var ch = rtf[i];
+    if (ch === "{"){
+      // peek: group begins with \* or a destination keyword?
+      var m = rtf.slice(i + 1, i + 40).match(/^\s*(\\\*)|^\s*\\([a-z]+)/);
+      depth++;
+      if (!isSkipping() && m){
+        var kw = m[2] || (m[1] ? "*" : "");
+        if (kw === "*" || RTF_SKIP_DEST[kw]) skipDepth = depth;
+      }
+      i++; continue;
+    }
+    if (ch === "}"){
+      if (skipDepth === depth) skipDepth = -1;
+      depth--; i++; continue;
+    }
+    if (ch === "\\"){
+      var rest = rtf.slice(i + 1);
+      var cm = rest.match(/^([a-zA-Z]+)(-?\d+)? ?/);
+      if (cm){
+        var word = cm[1], arg = cm[2] !== undefined ? parseInt(cm[2], 10) : null;
+        if (!isSkipping()){
+          if (word === "par" || word === "line") out.push("\n");
+          else if (word === "tab") out.push("\t");
+          else if (word === "u" && arg !== null){ out.push(String.fromCharCode(arg < 0 ? arg + 65536 : arg)); i += 1 + cm[0].length; if (rtf[i] === "?") i++; continue; }
+          else if (word === "emdash") out.push("—");
+          else if (word === "endash") out.push("–");
+          else if (word === "bullet") out.push("•");
+          else if (word === "lquote") out.push("‘");
+          else if (word === "rquote") out.push("’");
+          else if (word === "ldblquote") out.push("“");
+          else if (word === "rdblquote") out.push("”");
+        }
+        i += 1 + cm[0].length; continue;
+      }
+      var hx = rest.match(/^'([0-9a-fA-F]{2})/);
+      if (hx){
+        if (!isSkipping()){
+          var code = parseInt(hx[1], 16);
+          out.push(CP1252_HIGH[code] || String.fromCharCode(code));
+        }
+        i += 4; continue;
+      }
+      var sym = rest[0];
+      if (!isSkipping()){
+        if (sym === "~") out.push(" ");
+        else if (sym === "_") out.push("-");
+        else if (sym === "\\" || sym === "{" || sym === "}") out.push(sym);
+      }
+      i += 2; continue;
+    }
+    if (!isSkipping() && ch !== "\r" && ch !== "\n") out.push(ch);
+    i++;
+  }
+  return out.join("").replace(/\n{3,}/g, "\n\n").replace(/[ \t]+\n/g, "\n").trim();
+}
+/* ---- HTML text ---- */
+function stripHtml(html){
+  var s = String(html)
+    .replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/<\/(p|div|li|tr|h[1-6]|blockquote)>/gi, "\n\n")
+    .replace(/<br\s*\/?>/gi, "\n").replace(/<li[^>]*>/gi, "\n• ")
+    .replace(/<[^>]+>/g, "");
+  return decodeEntities(s.replace(/&nbsp;/g, " ")).replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+}
+/* ---- PDF text (best effort) ---- */
+function pdfUnescape(s){
+  return s.replace(/\\([0-7]{1,3})/g, function(_, o){ return String.fromCharCode(parseInt(o, 8)); })
+    .replace(/\\n/g, "\n").replace(/\\r/g, "").replace(/\\t/g, "\t")
+    .replace(/\\\(/g, "(").replace(/\\\)/g, ")").replace(/\\\\/g, "\\");
+}
+async function inflateStream(bytes){
+  if (typeof DecompressionStream === "undefined") return null;
+  for (var fmt of ["deflate", "deflate-raw"]){
+    try {
+      var stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream(fmt));
+      return new Uint8Array(await new Response(stream).arrayBuffer());
+    } catch (e) { /* try next */ }
+  }
+  return null;
+}
+function ascii85Decode(str){
+  var data = String(str).replace(/\s+/g, "");
+  if (data.indexOf("<~") === 0) data = data.slice(2);
+  if (data.slice(-2) === "~>") data = data.slice(0, -2);
+  var out = [], group = [];
+  function emit(g, count){
+    var num = 0;
+    for (var k = 0; k < 5; k++) num = num * 85 + g[k];
+    for (var b = 0; b < count; b++) out.push(Math.floor(num / Math.pow(256, 3 - b)) % 256);
+  }
+  for (var i = 0; i < data.length; i++){
+    var ch = data[i];
+    if (ch === "z" && group.length === 0){ out.push(0, 0, 0, 0); continue; }
+    var v = ch.charCodeAt(0) - 33;
+    if (v < 0 || v > 84) continue;
+    group.push(v);
+    if (group.length === 5){ emit(group, 4); group = []; }
+  }
+  if (group.length){ var rem = group.length; while (group.length < 5) group.push(84); emit(group, rem - 1); }
+  return new Uint8Array(out);
+}
+async function parsePdfText(buf){
+  var u8 = new Uint8Array(buf);
+  var latin = new TextDecoder("latin1").decode(u8);
+  var chunks = [], re = /\bstream\r?\n/g, m;
+  while ((m = re.exec(latin)) !== null){
+    var start = m.index + m[0].length;
+    var end = latin.indexOf("endstream", start);
+    if (end < 0) continue;
+    while (end > start && (u8[end - 1] === 10 || u8[end - 1] === 13)) end--;
+    chunks.push(u8.subarray(start, end));
+  }
+  var texts = [];
+  for (var ci = 0; ci < chunks.length; ci++){
+    var raw = await inflateStream(chunks[ci]);
+    if (!raw){
+      var a85 = ascii85Decode(new TextDecoder("latin1").decode(chunks[ci]));
+      if (a85 && a85.length) raw = (await inflateStream(a85)) || a85;
+    }
+    var content = raw ? new TextDecoder("latin1").decode(raw) : null;
+    if (!content || content.indexOf("BT") < 0) continue;
+    var out = [], tok = content.match(/\((?:\\.|[^\\()])*\)\s*(Tj|TJ|'|")|\[(?:\\.|[^\]])*\]\s*TJ|(T\*|Td|TD)\b/g) || [];
+    // simpler pass: walk operators in order
+    out = [];
+    var re2 = /\((?:\\.|[^\\()])*\)|\[(?:\\.|[^\]])*\]|[A-Za-z'"*]{1,3}/g, t, pending = [];
+    while ((t = re2.exec(content)) !== null){
+      var v = t[0];
+      if (v[0] === "(") pending.push(pdfUnescape(v.slice(1, -1)));
+      else if (v[0] === "["){
+        var parts = v.match(/\((?:\\.|[^\\()])*\)|-?\d+\.?\d*/g) || [], line = "";
+        parts.forEach(function(p){
+          if (p[0] === "(") line += pdfUnescape(p.slice(1, -1));
+          else if (parseFloat(p) < -120) line += " ";
+        });
+        pending.push(line);
+      }
+      else if (v === "Tj" || v === "'" || v === '"'){ if (pending.length) out.push(pending.join("")); pending = []; out.push("\n"); }
+      else if (v === "TJ"){ if (pending.length) out.push(pending.join("")); pending = []; out.push("\n"); }
+      else if (v === "T*" || v === "Td" || v === "TD") out.push("\n");
+      else if (v === "ET") out.push("\n");
+    }
+    texts.push(out.join(""));
+  }
+  var text = texts.join("\n").replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+  var wordCount = (text.match(/[A-Za-z]{2,}/g) || []).length;
+  if (wordCount < 15) throw new Error("readable text could not be extracted from this PDF (it may be scanned images or use embedded font encodings). Please copy the text and paste it instead.");
+  return text;
+}
+/* ---- CRC32 + stored-ZIP writer (for .docx export) ---- */
+var CRC_TABLE = null;
+function crc32(bytes){
+  if (!CRC_TABLE){
+    CRC_TABLE = [];
+    for (var n = 0; n < 256; n++){ var c = n; for (var k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; CRC_TABLE[n] = c >>> 0; }
+  }
+  var crc = 0xFFFFFFFF;
+  for (var i = 0; i < bytes.length; i++) crc = CRC_TABLE[(crc ^ bytes[i]) & 0xFF] ^ (crc >>> 8);
+  return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+function utf8Bytes(s){ return new TextEncoder().encode(s); }
+function zipStore(files){ // files: [{name, bytes(Uint8Array)}]
+  function u16(v){ return [v & 0xFF, (v >> 8) & 0xFF]; }
+  function u32(v){ return [v & 0xFF, (v >> 8) & 0xFF, (v >> 16) & 0xFF, (v >> 24) & 0xFF]; }
+  var out = [], central = [], offset = 0;
+  files.forEach(function(f){
+    var nameB = utf8Bytes(f.name), crc = crc32(f.bytes), size = f.bytes.length;
+    var local = [].concat(u32(0x04034b50), u16(20), u16(0x0800), u16(0), u16(0), u16(0x21), u32(crc), u32(size), u32(size), u16(nameB.length), u16(0));
+    out.push(new Uint8Array(local), nameB, f.bytes);
+    var cen = [].concat(u32(0x02014b50), u16(20), u16(20), u16(0x0800), u16(0), u16(0), u16(0x21), u32(crc), u32(size), u32(size),
+      u16(nameB.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(offset));
+    central.push(new Uint8Array(cen), nameB);
+    offset += local.length + nameB.length + size;
+  });
+  var cenSize = central.reduce(function(a, b){ return a + b.length; }, 0);
+  var end = new Uint8Array([].concat(u32(0x06054b50), u16(0), u16(0), u16(files.length), u16(files.length), u32(cenSize), u32(offset), u16(0)));
+  var total = offset + cenSize + end.length, zip = new Uint8Array(total), pos = 0;
+  out.concat(central, [end]).forEach(function(part){ zip.set(part, pos); pos += part.length; });
+  return zip;
+}
+/* ---- plain text wrapping + simple text-PDF writer ---- */
+function wrapText(text, width){
+  var lines = [];
+  String(text).split("\n").forEach(function(para){
+    var words = para.split(/\s+/).filter(Boolean), cur = "";
+    if (!words.length){ lines.push(""); return; }
+    words.forEach(function(w){
+      if ((cur + " " + w).trim().length > width && cur){ lines.push(cur); cur = w; }
+      else cur = (cur + " " + w).trim();
+    });
+    if (cur) lines.push(cur);
+  });
+  return lines;
+}
+function pdfSanitize(s){
+  return String(s).replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, "-")
+    .replace(/•/g, "-").replace(/[^\x20-\x7E\xA0-\xFF]/g, "?");
+}
+function buildTextPdf(title, bodyText){
+  var lines = wrapText(pdfSanitize(bodyText), 92);
+  var perPage = 46, pages = [];
+  for (var i = 0; i < lines.length; i += perPage) pages.push(lines.slice(i, i + perPage));
+  if (!pages.length) pages.push([]);
+  var objects = [], content = [];
+  // objects: 1 catalog, 2 pages, 3 font, then per page: page obj + content obj
+  var pageObjNums = pages.map(function(_, pi){ return 4 + pi * 2; });
+  objects[1] = "<< /Type /Catalog /Pages 2 0 R >>";
+  objects[2] = "<< /Type /Pages /Kids [" + pageObjNums.map(function(n){ return n + " 0 R"; }).join(" ") + "] /Count " + pages.length + " >>";
+  objects[3] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>";
+  pages.forEach(function(pageLines, pi){
+    var pageNum = 4 + pi * 2, contentNum = pageNum + 1;
+    objects[pageNum] = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents " + contentNum + " 0 R >>";
+    var ops = ["BT /F1 10.5 Tf 14 TL 48 800 Td"];
+    if (pi === 0){
+      ops.push("/F1 15 Tf (" + pdfEscape(title) + ") Tj /F1 10.5 Tf T* T*");
+    }
+    pageLines.forEach(function(l){ ops.push("(" + pdfEscape(l) + ") Tj T*"); });
+    ops.push("ET");
+    var stream = ops.join("\n");
+    objects[contentNum] = "<< /Length " + stream.length + " >>\nstream\n" + stream + "\nendstream";
+  });
+  var pdf = "%PDF-1.4\n", offsets = [0];
+  var maxObj = 3 + pages.length * 2;
+  for (var o = 1; o <= maxObj; o++){
+    offsets[o] = pdf.length;
+    pdf += o + " 0 obj\n" + objects[o] + "\nendobj\n";
+  }
+  var xrefPos = pdf.length;
+  pdf += "xref\n0 " + (maxObj + 1) + "\n0000000000 65535 f \n";
+  for (var o2 = 1; o2 <= maxObj; o2++) pdf += ("0000000000" + offsets[o2]).slice(-10) + " 00000 n \n";
+  pdf += "trailer\n<< /Size " + (maxObj + 1) + " /Root 1 0 R >>\nstartxref\n" + xrefPos + "\n%%EOF";
+  var bytes = new Uint8Array(pdf.length);
+  for (var b = 0; b < pdf.length; b++) bytes[b] = pdf.charCodeAt(b) & 0xFF;
+  return bytes;
+}
+function pdfEscape(s){ return pdfSanitize(s).replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)"); }
+
+/* PURE-CORE-END */
+</script>
+
+<script>
+"use strict";
+/* ================= APP ================= */
+var $ = function(id){ return document.getElementById(id); };
+var SAMPLE_TEXT = "In today's fast-paced world, technology plays a crucial role in our daily lives. Furthermore, it is important to note that artificial intelligence has revolutionized the way we work, communicate, and learn. Moreover, businesses utilize cutting-edge tools to facilitate growth and enhance productivity. Additionally, individuals are able to obtain information rapidly and efficiently. In conclusion, technology is an essential component of modern society, and it will continue to transform the landscape of every industry in the future.\n\nIt is worth noting that education has also been transformed. Students utilize digital platforms to access a wide range of resources, and teachers leverage technology to demonstrate complex concepts. Consequently, learning has become more accessible and more effective for a large number of people around the world.";
+function esc(s){ return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+function showMsg(t, kind){ var m = $("msg"); m.textContent = t || ""; m.className = "msg" + (t ? " " + kind : ""); }
+function currentText(){ return $("input").value; }
+function updateCounts(){
+  var t = currentText();
+  $("counts").textContent = wordsOf(t).length + " words · " + t.length + " characters (limit 20,000)";
+}
+$("input").addEventListener("input", updateCounts);
+$("drop").addEventListener("click", function(){ $("file").click(); });
+$("drop").addEventListener("keydown", function(e){ if (e.key === "Enter" || e.key === " "){ e.preventDefault(); $("file").click(); } });
+["dragenter", "dragover"].forEach(function(ev){ $("drop").addEventListener(ev, function(e){ e.preventDefault(); }); });
+$("drop").addEventListener("drop", function(e){ e.preventDefault(); if (e.dataTransfer.files.length) readAnyFile(e.dataTransfer.files[0]); });
+$("file").addEventListener("change", function(){ if (this.files.length) readAnyFile(this.files[0]); this.value = ""; });
+function setInputText(text, label){
+  var note = "";
+  if (!text || text.trim().length < 10){ showMsg("No readable text was found in that file. If it is a scanned document, copy the text and paste it instead.", "error"); return; }
+  if (text.length > 20000){ text = text.slice(0, 20000); note = " The document was longer than 20,000 characters, so the first 20,000 were loaded."; }
+  $("input").value = text; updateCounts();
+  showMsg("Loaded text from “" + label + "”." + note + " Now press ① Check AI-style score.", "ok");
+}
+async function readAnyFile(f){
+  if (f.size > 4 * 1024 * 1024){ showMsg("That file is larger than 4 MB. Please use a smaller document or paste an excerpt (max 20,000 characters).", "error"); return; }
+  var name = f.name.toLowerCase();
+  try {
+    var buf = await f.arrayBuffer(), u8 = new Uint8Array(buf), text = null;
+    if (u8[0] === 0xD0 && u8[1] === 0xCF)
+      throw new Error("legacy .doc (binary Word) files cannot be read reliably in a web page. Open the file in Word and choose Save As → .docx or .txt, then upload that.");
+    if (name.endsWith(".pdf") || (u8[0] === 0x25 && u8[1] === 0x50 && u8[2] === 0x44 && u8[3] === 0x46)){
+      text = await parsePdfText(buf);
+    } else if (u8[0] === 0x50 && u8[1] === 0x4B){
+      var dv = new DataView(buf), entries = zipEntryMap(u8, dv);
+      if (!entries) throw new Error("the file's zip structure could not be read.");
+      if (entries["word/document.xml"])
+        text = parseDocxText(new TextDecoder().decode(await zipEntryBytes(u8, dv, entries, "word/document.xml")));
+      else if (entries["content.xml"])
+        text = parseOdtText(new TextDecoder().decode(await zipEntryBytes(u8, dv, entries, "content.xml")));
+      else throw new Error("no readable document was found inside (expected a .docx or .odt file).");
+    } else {
+      var raw = new TextDecoder().decode(u8);
+      if (name.endsWith(".rtf") || raw.indexOf("{\rtf") === 0) text = parseRtf(raw);
+      else if (name.endsWith(".html") || name.endsWith(".htm") || (/<(html|body|p|div|h[1-6])[\s>]/i.test(raw.slice(0, 2000)))) text = stripHtml(raw);
+      else text = raw;
+    }
+    setInputText(text, f.name);
+  } catch (e) { showMsg("Could not read that file: " + e.message, "error"); }
+}
+$("sample").addEventListener("click", function(){
+  $("input").value = SAMPLE_TEXT; updateCounts();
+  showMsg("Sample loaded — deliberately written in a machine style so you can watch the score fall. Press ①, then ②.", "ok");
+});
+$("clear").addEventListener("click", function(){
+  $("input").value = ""; updateCounts(); showMsg("", "");
+  $("beforeCard").classList.add("hidden"); $("afterCard").classList.add("hidden");
+  $("humanize").disabled = true;
+});
+function metricsHtml(a){
+  var rows = [
+    ["Stock AI phrases found", a.stockHits + " (" + a.stockPer100.toFixed(1) + " per 100 words)"],
+    ["Sentence rhythm", a.sentences > 1 ? (a.sentenceCV >= 0.45 ? "Varied (CV " + a.sentenceCV.toFixed(2) + ")" : "Uniform (CV " + a.sentenceCV.toFixed(2) + ")") : "—"],
+    ["Average sentence length", a.avgSentenceLen ? a.avgSentenceLen.toFixed(1) + " words" : "—"],
+    ["Formal / AI-favoured words", a.formalPer100.toFixed(1) + " per 100 words"],
+    ["Contractions", String(a.contractions)],
+    ["Vocabulary diversity (TTR)", a.ttr.toFixed(2)],
+    ["Reading ease (Flesch)", a.flesch ? a.flesch.toFixed(0) + " / 100" : "—"]
+  ];
+  return "<table>" + rows.map(function(r){ return "<tr><td>" + r[0] + "</td><td>" + r[1] + "</td></tr>"; }).join("") + "</table>";
+}
+function highlightHtml(text, avgLen){
+  return splitParagraphs(text).map(function(p){
+    return splitSentences(p).map(function(s){
+      return "<span class='s-" + sentenceClass(s, s.toLowerCase(), avgLen) + "'>" + esc(s) + "</span>";
+    }).join(" ");
+  }).join("\n\n");
+}
+function renderScore(prefix, a){
+  var band = bandOf(a.score);
+  $(prefix === "Before" ? "scoreBefore" : "scoreAfter").textContent = a.score;
+  var bar = $(prefix === "Before" ? "barBefore" : "barAfter");
+  bar.style.width = a.score + "%"; bar.style.background = band[1];
+  var bandEl = $(prefix === "Before" ? "bandBefore" : "bandAfter");
+  bandEl.textContent = band[0]; bandEl.style.color = band[1];
+  $(prefix === "Before" ? "metricsBefore" : "metricsAfter").innerHTML = metricsHtml(a);
+}
+var lastBefore = null, lastAfterText = "", lastAfter = null;
+$("analyze").addEventListener("click", function(){
+  var t = currentText().trim();
+  if (t.length < 50) return showMsg("Please enter at least 50 characters — a sentence or two — so the style analysis has something to measure.", "error");
+  if (t.length > 20000) return showMsg("The text is " + t.length.toLocaleString() + " characters; the limit is 20,000. Please trim it or split it into parts.", "error");
+  showMsg("", "");
+  lastBefore = analyze(t);
+  renderScore("Before", lastBefore);
+  $("hlBefore").innerHTML = highlightHtml(t, lastBefore.avgSentenceLen);
+  $("beforeCard").classList.remove("hidden");
+  $("afterCard").classList.add("hidden");
+  $("humanize").disabled = false;
+  $("beforeCard").scrollIntoView({ behavior: "smooth", block: "nearest" });
+});
+$("humanize").addEventListener("click", function(){
+  var t = currentText().trim();
+  if (!lastBefore || t.length < 50) return;
+  lastAfterText = humanize(t, $("tone").value, $("strength").value);
+  var after = analyze(lastAfterText); lastAfter = after;
+  renderScore("After", after);
+  $("hlAfter").innerHTML = highlightHtml(lastAfterText, after.avgSentenceLen);
+  var delta = lastBefore.score - after.score;
+  $("deltaLine").innerHTML = delta > 0
+    ? "AI-style score reduced by <b style='color:#146C43'>" + delta + " points</b> — from " + lastBefore.score + "% to " + after.score + "%" +
+      (after.score < 32 ? " — now in the mostly human-style band of this estimator." : ".")
+    : "Score changed by " + delta + " points (" + lastBefore.score + "% → " + after.score + "%). Already-human text changes little — that is expected.";
+  $("afterCard").classList.remove("hidden");
+  $("afterCard").scrollIntoView({ behavior: "smooth", block: "nearest" });
+});
+$("copyOut").addEventListener("click", function(){
+  if (!lastAfterText) return;
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(lastAfterText);
+  else { var ta = document.createElement("textarea"); ta.value = lastAfterText; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); }
+  showMsg("Humanized text copied to the clipboard.", "ok");
+});
+$("dlOut").addEventListener("click", function(){
+  if (!lastAfterText) return;
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([lastAfterText], { type: "text/plain" }));
+  a.download = "humanized-text.txt"; a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); }, 4000);
+});
+$("useAsInput").addEventListener("click", function(){
+  if (!lastAfterText) return;
+  $("input").value = lastAfterText; updateCounts();
+  lastBefore = null; $("humanize").disabled = true;
+  $("beforeCard").classList.add("hidden"); $("afterCard").classList.add("hidden");
+  showMsg("The humanized text is now the input. Press ① to check it fresh.", "ok");
+});
+updateCounts();
+/* ================= REPORTS ================= */
+function packAnalysis(a){
+  if (!a) return null;
+  return { score: a.score, band: bandOf(a.score)[0],
+    metrics: { words: a.words, sentences: a.sentences, stockPhrases: a.stockHits,
+      stockPhrasesPer100: +a.stockPer100.toFixed(2), avgSentenceLength: +a.avgSentenceLen.toFixed(1),
+      sentenceRhythmCV: +a.sentenceCV.toFixed(2), formalWordsPer100: +a.formalPer100.toFixed(2),
+      contractions: a.contractions, vocabularyDiversityTTR: +a.ttr.toFixed(2), fleschReadingEase: Math.round(a.flesch) },
+    sentences: a.sentenceObjs };
+}
+function buildReportData(){
+  return { product: "Text Humanizer", version: "1.1", generatedAt: new Date().toISOString(),
+    note: "Scores are local stylistic estimates, not GPTZero/Turnitin/Originality.ai/Copyleaks/Pangram scores.",
+    before: packAnalysis(lastBefore), after: packAnalysis(lastAfter),
+    originalText: $("input").value, humanizedText: lastAfterText };
+}
+function metricsLines(pack){
+  if (!pack) return "—";
+  var m = pack.metrics;
+  return [["AI-style score", pack.score + "% — " + pack.band],
+    ["Stock AI phrases", m.stockPhrases + " (" + m.stockPhrasesPer100 + " per 100 words)"],
+    ["Sentence rhythm (CV)", m.sentenceRhythmCV], ["Average sentence length", m.avgSentenceLength + " words"],
+    ["Formal words per 100", m.formalWordsPer100], ["Contractions", m.contractions],
+    ["Vocabulary diversity (TTR)", m.vocabularyDiversityTTR], ["Reading ease (Flesch)", m.fleschReadingEase + " / 100"]
+  ].map(function(r){ return r[0] + ": " + r[1]; }).join("\n");
+}
+function reportPlainText(d){
+  return "TEXT HUMANIZER — REPORT\nGenerated: " + d.generatedAt.slice(0, 10) + " · Asif SaaS Studio\n" + d.note + "\n\n" +
+    "=== BEFORE ===\n" + metricsLines(d.before) + "\n\n=== AFTER (HUMANIZED) ===\n" + metricsLines(d.after) + "\n\n" +
+    "=== HUMANIZED TEXT ===\n" + d.humanizedText + "\n\n=== ORIGINAL TEXT ===\n" + d.originalText + "\n";
+}
+function reportHtml(d){
+  function block(title, pack, text, avgLen){
+    if (!pack) return "";
+    var rows = metricsLines(pack).split("\n").map(function(l){
+      var kv = l.split(": "); return "<tr><td>" + esc(kv[0]) + "</td><td><b>" + esc(kv.slice(1).join(": ")) + "</b></td></tr>";
+    }).join("");
+    return "<h2>" + title + " — AI-style score: " + pack.score + "%</h2><table>" + rows + "</table>" +
+      "<div class='hl'>" + highlightHtml(text, avgLen) + "</div>";
+  }
+  return "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Text Humanizer Report</title><style>" +
+    "body{font-family:Segoe UI,Arial,sans-serif;color:#17352B;max-width:900px;margin:24px auto;padding:0 16px}" +
+    "h1{color:#103E32}h2{color:#103E32;margin-top:26px}table{border-collapse:collapse}td{border-bottom:1px solid #DCE5D8;padding:4px 10px 4px 0}" +
+    ".hl{border:1px solid #DCE5D8;border-radius:8px;padding:12px;line-height:1.75;white-space:pre-wrap}" +
+    ".s-high{background:#F8D7D3}.s-med{background:#FCEBC4}.s-low{background:#DDF0DC}.note{color:#5A6E64;font-size:13px}</style></head><body>" +
+    "<h1>Text Humanizer — Report</h1><p class='note'>Generated " + esc(d.generatedAt.slice(0, 10)) + " · Asif SaaS Studio · " + esc(d.note) + "</p>" +
+    block("Before", d.before, d.originalText, lastBefore ? lastBefore.avgSentenceLen : 0) +
+    block("After (humanized)", d.after, d.humanizedText, lastAfter ? lastAfter.avgSentenceLen : 0) +
+    "</body></html>";
+}
+function docxDocumentXml(d){
+  function para(text, opts){
+    opts = opts || {};
+    var pPr = opts.heading ? "<w:pPr><w:spacing w:after='120'/></w:pPr>" : "<w:pPr><w:spacing w:after='80'/></w:pPr>";
+    var rPr = (opts.bold ? "<w:b/>" : "") + (opts.size ? "<w:sz w:val='" + opts.size + "'/><w:szCs w:val='" + opts.size + "'/>" : "") +
+      (opts.shade ? "<w:shd w:val='clear' w:fill='" + opts.shade + "'/>" : "");
+    return "<w:p>" + pPr + "<w:r><w:rPr>" + rPr + "</w:rPr><w:t xml:space='preserve'>" + escXml(text) + "</w:t></w:r></w:p>";
+  }
+  function highlightedParas(text, avgLen){
+    return splitParagraphs(text).map(function(p){
+      var runs = splitSentences(p).map(function(s){
+        var cls = sentenceClass(s, s.toLowerCase(), avgLen);
+        var fill = cls === "high" ? "F8D7D3" : cls === "med" ? "FCEBC4" : "DDF0DC";
+        return "<w:r><w:rPr><w:shd w:val='clear' w:fill='" + fill + "'/></w:rPr><w:t xml:space='preserve'>" + escXml(s) + " </w:t></w:r>";
+      }).join("");
+      return "<w:p><w:pPr><w:spacing w:after='80'/></w:pPr>" + runs + "</w:p>";
+    }).join("");
+  }
+  function section(title, pack, text, avgLen){
+    if (!pack) return "";
+    var out = para(title + " — AI-style score: " + pack.score + "% (" + pack.band + ")", { heading: true, bold: true, size: 28 });
+    metricsLines(pack).split("\n").forEach(function(l){ out += para(l, {}); });
+    return out + highlightedParas(text, avgLen);
+  }
+  return "<?xml version='1.0' encoding='UTF-8' standalone='yes'?>" +
+    "<w:document xmlns:w='http://schemas.openxmlformats.org/wordprocessingml/2006/main'><w:body>" +
+    para("Text Humanizer — Report", { heading: true, bold: true, size: 34 }) +
+    para("Generated " + d.generatedAt.slice(0, 10) + " · Asif SaaS Studio · " + d.note, {}) +
+    section("Before", d.before, d.originalText, lastBefore ? lastBefore.avgSentenceLen : 0) +
+    section("After (humanized)", d.after, d.humanizedText, lastAfter ? lastAfter.avgSentenceLen : 0) +
+    "</w:body></w:document>";
+}
+function downloadBlob(blob, filename){
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); }, 4000);
+}
+document.querySelectorAll("[data-report]").forEach(function(btn){
+  btn.addEventListener("click", function(){
+    if (!lastBefore || !lastAfter) { showMsg("Run the humanizer first — reports are generated from a completed before/after check.", "error"); return; }
+    var d = buildReportData(), kind = btn.getAttribute("data-report");
+    if (kind === "json") downloadBlob(new Blob([JSON.stringify(d, null, 2)], { type: "application/json" }), "text-humanizer-report.json");
+    else if (kind === "html") downloadBlob(new Blob([reportHtml(d)], { type: "text/html" }), "text-humanizer-report.html");
+    else if (kind === "pdf") downloadBlob(new Blob([buildTextPdf("Text Humanizer — Report", reportPlainText(d))], { type: "application/pdf" }), "text-humanizer-report.pdf");
+    else if (kind === "doc") downloadBlob(new Blob([reportHtml(d)], { type: "application/msword" }), "text-humanizer-report.doc");
+    else if (kind === "docx"){
+      var parts = [
+        { name: "[Content_Types].xml", bytes: utf8Bytes("<?xml version='1.0' encoding='UTF-8' standalone='yes'?><Types xmlns='http://schemas.openxmlformats.org/package/2006/content-types'><Default Extension='rels' ContentType='application/vnd.openxmlformats-package.relationships+xml'/><Default Extension='xml' ContentType='application/xml'/><Override PartName='/word/document.xml' ContentType='application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml'/></Types>") },
+        { name: "_rels/.rels", bytes: utf8Bytes("<?xml version='1.0' encoding='UTF-8' standalone='yes'?><Relationships xmlns='http://schemas.openxmlformats.org/package/2006/relationships'><Relationship Id='rId1' Type='http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument' Target='word/document.xml'/></Relationships>") },
+        { name: "word/document.xml", bytes: utf8Bytes(docxDocumentXml(d)) }
+      ];
+      downloadBlob(new Blob([zipStore(parts)], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" }), "text-humanizer-report.docx");
+    }
+  });
+});
+
+</script>
+</body>
+</html>
